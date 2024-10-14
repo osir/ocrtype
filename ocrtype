@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+
+VERSION='0.1'
+
+# Requirements:
+# - grimshot(1)
+# - tesseract(1)
+# - wtype(1)
+# - wl-clipboard(1): wl-copy, wl-paste
+
+# Basic TODO:
+# - Which clipboards to use? => Setting?
+# - Which mime type to use?
+# - Logging, Debug/Verbose flag
+# - Finish Help
+#
+# Feature TODO:
+# - Notify-send
+# - Setting custom clipboard and OCR handler
+# - Tuning tesseract and maybe adding flags?
+
+set -e
+set -u
+set -x
+
+main() {
+    [[ "${#*}" -lt 1 ]] && help_exit '1'
+    local mode="$1"
+    case "$mode" in
+        r*)
+            shift
+            read_screenarea "$@"
+            ;;
+        w*)
+            shift
+            type_clipboard "$@"
+            ;;
+        *)
+            printf 'Unknown MODE "%s"\n' "$mode"
+            help_exit '1'
+            ;;
+    esac
+}
+
+
+read_screenarea() {
+    grimshot save area - \
+        | tesseract - - \
+        | wl-copy
+}
+
+
+type_clipboard() {
+    wl-paste | wtype -s 2000 -
+}
+
+
+help_exit() {
+    cat << "EOF"
+ocrtype V$VERSION\n\n
+Usage: ocrtype <MODE> [flags]\n
+Modes: r, w
+OCR read from a screen area into clipboard or type clipboard contents.\n
+EOF
+    exit "${1:-0}"
+}
+
+help_exit_read() {
+    cat << "EOF"
+ocrtype V$VERSION\n\n
+Usage: ocrtype r [options]\n
+Options: TODO
+OCR read from a screen area into clipboard or type clipboard contents.\n
+EOF
+    exit "${1:-0}"
+}
+
+help_exit_write() {
+    cat << "EOF"
+ocrtype V$VERSION\n\n
+Usage: ocrtype w [options]\n
+Options: TODO
+OCR read from a screen area into clipboard or type clipboard contents.\n
+EOF
+    exit "${1:-0}"
+}
+
+main "$@"
+
