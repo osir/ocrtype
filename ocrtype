@@ -11,13 +11,15 @@ VERSION='0.1'
 # Basic TODO:
 # - Which clipboards to use? => Setting?
 # - Which mime type to use?
-# - Logging, Debug/Verbose flag
+# - Logging, Debug/Verbose flag, stderr instead of stdout
 # - Finish Help
+# - Save read output into file
 #
 # Feature TODO:
 # - Notify-send
 # - Setting custom clipboard and OCR handler
 # - Tuning tesseract and maybe adding flags?
+# - auto-detect compositor
 
 set -e
 set -u
@@ -25,33 +27,61 @@ set -x
 
 main() {
     [[ "${#*}" -lt 1 ]] && help_exit '1'
-    local mode="$1"
+    local mode="$1" && shift
+    local scr_tmpfile
+    local compositor='default'
+
+    # TODO: hardcoded
+    local typing_start_delay=2000
+    local typing_between_delay=0
+
+    for i in "$@"; do
+        case "$i" in
+            --compositor=*)
+                compositor="${i#*=}"
+                ;;
+            --verbose)
+                verbose=YES
+                ;;
+            -*|--*)
+                printf 'Unknown option "%s"\n' "$i"
+                help_exit 1
+                ;;
+            *)
+              ;;
+        esac
+          shift
+
+    done
+
+    local scr_tmpfile='/tmp/ocrtype-temp-screenshot'
+    case "$compositor" in
+        default | wlroots)
+            scr_cmd="grimshot save area $scr_tmpfile"
+            typing_cmd="wtype -s $typing_start_delay -"
+            ;;
+        gnome)
+            scr_cmd="gnome-screenshot --area --file=$scr_tmpfile"
+            typing_cmd='' # TODO find gnome-compatible way of typing
+            ;;
+    esac
+
     case "$mode" in
         r*)
-            shift
-            read_screenarea "$@"
+            $scr_cmd
+            tesseract "$scr_tmpfile" - \
+                | wl-copy
             ;;
         w*)
-            shift
-            type_clipboard "$@"
+            wl-paste \
+                | $typing_cmd
             ;;
         *)
             printf 'Unknown MODE "%s"\n' "$mode"
             help_exit '1'
             ;;
     esac
-}
 
-
-read_screenarea() {
-    grimshot save area - \
-        | tesseract - - \
-        | wl-copy
-}
-
-
-type_clipboard() {
-    wl-paste | wtype -s 2000 -
 }
 
 
@@ -65,25 +95,6 @@ EOF
     exit "${1:-0}"
 }
 
-help_exit_read() {
-    cat << "EOF"
-ocrtype V$VERSION\n\n
-Usage: ocrtype r [options]\n
-Options: TODO
-OCR read from a screen area into clipboard or type clipboard contents.\n
-EOF
-    exit "${1:-0}"
-}
-
-help_exit_write() {
-    cat << "EOF"
-ocrtype V$VERSION\n\n
-Usage: ocrtype w [options]\n
-Options: TODO
-OCR read from a screen area into clipboard or type clipboard contents.\n
-EOF
-    exit "${1:-0}"
-}
 
 main "$@"
 
