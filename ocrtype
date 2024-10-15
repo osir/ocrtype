@@ -7,6 +7,7 @@ VERSION='0.1'
 # - tesseract(1)
 # - wtype(1)
 # - wl-clipboard(1): wl-copy, wl-paste
+# - notify-send(1)
 
 # Basic TODO:
 # - Which clipboards to use? => Setting?
@@ -14,9 +15,9 @@ VERSION='0.1'
 # - Logging, Debug/Verbose flag, stderr instead of stdout
 # - Finish Help
 # - Save read output into file
+# - Options for hardcoded values
 #
 # Feature TODO:
-# - Notify-send
 # - Setting custom clipboard and OCR handler
 # - Tuning tesseract and maybe adding flags?
 # - auto-detect compositor
@@ -70,13 +71,16 @@ main() {
         r*)
             $scr_cmd
             local result="$(tesseract "$scr_tmpfile" -)"
-            wl-copy - <<<"$result"
+            wl-copy <<<"$result"
             notify-send --app-name='ocrtype' --urgency=low \
                 'Read text to clipboard.' \
                 "\"${#result} Chars: $( tr -d '\n\r' <<< "${result:0:40}" )\""
             ;;
         w*)
             printf 'Starting to type in %sms.\n' "$typing_start_delay"
+            [[ "${typing_start_delay}" -gt 1000 ]] \
+                && notify-send --app-name='ocrtype' --urgency=low \
+                "Starting to type in ${typing_start_delay}ms."
             wl-paste \
                 | $typing_cmd
             ;;
