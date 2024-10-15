@@ -40,8 +40,8 @@ main() {
             --compositor=*)
                 compositor="${i#*=}"
                 ;;
-            --verbose)
-                verbose=YES
+            -h|--help)
+                help_exit 0
                 ;;
             -*|--*)
                 printf 'Unknown option "%s"\n' "$i"
@@ -69,10 +69,14 @@ main() {
     case "$mode" in
         r*)
             $scr_cmd
-            tesseract "$scr_tmpfile" - \
-                | wl-copy
+            local result="$(tesseract "$scr_tmpfile" -)"
+            wl-copy - <<<"$result"
+            notify-send --app-name='ocrtype' --urgency=low \
+                'Read text to clipboard.' \
+                "\"${#result} Chars: $( tr -d '\n\r' <<< "${result:0:40}" )\""
             ;;
         w*)
+            printf 'Starting to type in %sms.\n' "$typing_start_delay"
             wl-paste \
                 | $typing_cmd
             ;;
