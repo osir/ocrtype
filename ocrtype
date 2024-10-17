@@ -103,7 +103,7 @@ ocr_image() {
 # Args: 1 OCR Path; 2 Session Type
 clipboard_copy() {
     case "$2" in
-        x)
+        x11)
             xcopy -selection clipboard <"$1"
             ;;
         wayland)
@@ -118,7 +118,7 @@ clipboard_copy() {
 
 clipboard_paste() {
     case "$1" in
-        x)
+        x11)
             # TODO
             xpaste
             ;;
