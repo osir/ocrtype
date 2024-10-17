@@ -27,10 +27,146 @@ set -u
 set -x
 
 main() {
+    # TODO: better cli arg handling
+    local mode="$1"
+    # TODO: overwrite with flags
+    local session_de
+    local session_type
+    local screenshot_path='/tmp/ocrtype-temp-screenshot'
+    local ocr_path='/tmp/ocrtype-temp-text'
+
+    session_de="$( detect_de )"
+    session_type="$( detect_session )"
+
+    case "$mode" in
+        r*)
+            take_screenshot "$screenshot_path" "$session_de"
+            ocr_image       "$screenshot_path" "$ocr_path"
+            clipboard_copy  "$ocr_path"        "$session_type"
+            ;;
+        w*)
+            clipboard_paste "$session_type" \
+                | type_text "$session_de"
+            ;;
+    esac
+}
+
+
+detect_de() {
+    local de
+    # Unlike $XDG_CURRENT_DESKTOP, $XDG_SESSION_DESKTOP should
+    # always be a single value
+    de="${XDG_SESSION_DESKTOP:-unknown}"
+    log "Detected desktop as '$de'."
+    case "$de" in
+        sway|hyprland)
+            printf '%s' "wlroots"
+            ;;
+        cinnamon|gnome)
+            printf '%s' "gnome"
+            ;;
+        *)
+            printf '%s' "$de"
+            ;;
+    esac
+}
+
+detect_session() {
+    local sess
+    sess="${XDG_SESSION_TYPE:-unknown}"
+    log "Detected session type as '$sess'."
+    printf '%s' "$sess"
+}
+
+# Args: 1 Path; 2 Desktop
+take_screenshot() {
+    local path="$1"
+    case "$2" in
+        wlroots)
+            grimshot save area "$path"
+            ;;
+        gnome)
+            gnome-screenshot --area --file="$path"
+            ;;
+        *)
+            log 'error unknown DE'
+            ;;
+    esac
+}
+
+# Args: 1 Screenshot Path; 2 OCR Path
+ocr_image() {
+    # TODO: offer alternatives
+    tesseract "$1" - > "$2"
+}
+
+# Args: 1 OCR Path; 2 Session Type
+clipboard_copy() {
+    case "$2" in
+        x)
+            xcopy -selection clipboard <"$1"
+            ;;
+        wayland)
+            # TODO: which clipboard? which mime type?
+            wl-copy --primary <"$1"
+            ;;
+        *)
+            log 'error unknown type'
+            ;;
+    esac
+}
+
+clipboard_paste() {
+    case "$1" in
+        x)
+            # TODO
+            xpaste
+            ;;
+        wayland)
+            # TODO: which clipboard? which mime type?
+            wl-paste --primary
+            ;;
+        *)
+            log 'error unknown type'
+            ;;
+    esac
+}
+
+type_text() {
+    case "$1" in
+        wlroots)
+            # TODO: args for -s and -d
+            wtype -s 2000 -
+            ;;
+        gnome)
+            log 'error gnome not supported yet'
+            return 1
+            ;;
+        *)
+            log 'error unknown DE'
+            ;;
+    esac
+}
+
+# Args:
+#     1   Prefix
+#     2   Message
+log() {
+    if [[ "${#*}" -lt 2 ]]
+    then
+        >&2 printf '%s\n' "$1"
+    else
+        >&2 printf '%s: %s\n' "$1" "$2"
+    fi
+}
+
+
+main2() {
     [[ "${#*}" -lt 1 ]] && help_exit '1'
     local mode="$1" && shift
     local scr_tmpfile
     local compositor='default'
+    echo "$XDG_SESSION_TYPE"
 
     # TODO: hardcoded
     local typing_start_delay=2000
@@ -44,15 +180,12 @@ main() {
             -h|--help)
                 help_exit 0
                 ;;
-            -*|--*)
+            *)
                 printf 'Unknown option "%s"\n' "$i"
                 help_exit 1
                 ;;
-            *)
-              ;;
         esac
-          shift
-
+        shift
     done
 
     local scr_tmpfile='/tmp/ocrtype-temp-screenshot'
@@ -89,7 +222,6 @@ main() {
             help_exit '1'
             ;;
     esac
-
 }
 
 
