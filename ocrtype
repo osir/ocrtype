@@ -104,7 +104,7 @@ ocr_image() {
 clipboard_copy() {
     case "$2" in
         x11)
-            xcopy -selection clipboard <"$1"
+            xclip -selection clipboard <"$1"
             ;;
         wayland)
             # TODO: which clipboard? which mime type?
